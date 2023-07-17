@@ -1,0 +1,24 @@
+Random Sample Selection: Randomly select a minimal sample of correspondences from the given set of correspondences.
+ A minimal sample typically consists of a minimum number of correspondences required to estimate the essential matrix, which is usually 5 or 8 correspondences.
+
+Essential Matrix Estimation: Use the selected correspondences to estimate an initial essential matrix. 
+This can be done using methods such as the 8-point algorithm or the normalized 8-point algorithm.
+
+Inlier Classification: Evaluate the remaining correspondences by calculating their epipolar lines based on the estimated essential matrix.
+In stereo vision, when two cameras capture images of the same scene from different viewpoints, 
+the epipolar line represents the possible locations of a corresponding point in the other image.
+ For each correspondence, check if the distance between the computed epipolar line and the corresponding point in the other image is below a certain threshold. 
+ If it is, consider it an inlier; otherwise, classify it as an outlier.
+
+Consensus Set Accumulation: Count the number of inliers obtained in the previous step. 
+Keep track of the essential matrix associated with the largest consensus set (i.e., the largest number of inliers) seen so far.
+
+Repeat: Repeat steps 1-4 for a fixed number of iterations. In each iteration, random sample selection, essential matrix estimation, inlier classification, 
+and consensus set accumulation are performed.
+
+Final Model Selection: After the iterations are completed, select the essential matrix associated with the largest consensus set as the final estimated essential matrix.
+
+Refinement: Optionally, refine the estimated essential matrix using techniques such as nonlinear optimization or decomposition into rotation and translation.
+
+The direct estimation calculates the essential matrix using all the matched keypoint locations,
+ while the RANSAC estimation selects a subset of keypoint correspondences to robustly estimate the essential matrix.

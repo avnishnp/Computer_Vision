@@ -1,0 +1,15 @@
+FindMissingReconstruction : identify the points in a 3D point cloud X that are newly added and valid for a new image registration.
+
+ComputeTriangulationError : calculates the averaged nonlinear triangulation error (E) and the vector f for each point in a 3D point cloud X, 
+given two camera projection matrices P1 and P2 and a corresponding set of image points b.
+
+Triangulation_nl : performs nonlinear triangulation to refine the 3D points obtained from a initial triangulation. 
+It iteratively improves the triangulation by minimizing the triangulation error.
+
+ComputePointJacobian : The ComputePointJacobian function computes the Jacobian matrix of a 3D point X with respect to a camera pose p. 
+The Jacobian matrix represents the sensitivity or rate of change of the projected image points with respect to small changes in the 3D point coordinates.
+
+SetupBundleAdjustment :  sets up the data structures required for bundle adjustment optimization.
+ Bundle adjustment is a technique used in computer vision and 3D reconstruction to refine the estimated camera poses and 3D points 
+ by minimizing the reprojection error between the observed 2D points and the projected 3D points.
+
