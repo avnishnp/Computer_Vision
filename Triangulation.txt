@@ -1,0 +1,34 @@
+Obtain camera projection matrices: The function takes two camera projection matrices, P1 and P2, which represent the camera poses in the two views.
+ Each camera projection matrix is a 3x4 matrix that combines the intrinsic parameters of the camera (such as focal length and principal point)
+  with the extrinsic parameters (rotation and translation) that define the camera's position and orientation in 3D space.
+
+Collect point correspondences: The function takes two sets of 2D point correspondences, track1 and track2, which are arrays of shape (n, 2). 
+Each row in track1 corresponds to the 2D coordinates of a point in the first view, and the corresponding row in track2 represents
+ the 2D coordinates of the same point in the second view.
+
+ Check correspondence consistency: The code checks if the number of points in track1 and track2 matches.
+  If they don't match, it exits the program with an error message. It is important to have a one-to-one correspondence between the points in the two views.
+
+
+Extract 2D point coordinates: Inside the loop, the 2D coordinates of the current point in each track are extracted as vectors u and v. 
+These vectors are augmented with a 1 at the end to represent homogeneous coordinates.
+ This is necessary because the projection equations involve homogeneous coordinates.
+
+
+Compute skew-symmetric matrices: The function vec2skew (not defined in the code snippet) is likely a helper function that converts a 3D vector 
+into a skew-symmetric matrix. Skew-symmetric matrices are used to represent cross-product operations in matrix form.
+In this step, two skew-symmetric matrices, h1 and h2, are computed by multiplying the augmented vectors u and v with their respective camera projection matrices (P1 and P2).
+The resulting matrices have a shape of 2x4.
+
+
+Build homogeneous linear system: The two skew-symmetric matrices, h1 and h2, are stacked vertically to form a 4x4 matrix h3. 
+This matrix represents the homogeneous linear equations relating the 2D and 3D coordinates of the point.
+
+
+Perform Singular Value Decomposition (SVD): SVD is applied to the matrix h3. It decomposes h3 into three matrices: U, D, and Vt.
+ Here, U is a 4x4 orthogonal matrix, D is a diagonal matrix containing the singular values, and Vt is the transpose of a 4x4 orthogonal matrix V.
+
+
+ Extract 3D coordinates: The last row of Vt (the transpose of V) corresponds to the right singular vector associated with the smallest singular value.
+  This vector, denoted by a, represents the homogeneous coordinates of the triangulated 3D point. 
+  By dividing the first three elements of a by the fourth element, the code homogenizes the coordinates and obtains the 3D coordinates of the point.

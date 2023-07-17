@@ -1,0 +1,16 @@
+Given a set of corresponding points x1 and x2 in two images, these points are used to construct a set of equations.
+
+Each point correspondence (x1, x2) generates a row of the essential matrix equation. The equation is typically of the form x2^T * E * x1 = 0,
+ where x1 and x2 are homogeneous coordinates of the corresponding points.
+
+These equations are collected into a linear system of equations of the form Ax = 0, where A is a matrix constructed from the point correspondences.
+if you have a set of N corresponding points, the matrix A will have dimensions (N, 9), and each row of A will be constructed using the coordinates 
+of the corresponding points x1 and x2.
+
+The singular value decomposition (SVD) is applied to matrix A. The essential matrix E is obtained by selecting the right singular vector corresponding 
+to the smallest singular value.
+
+The obtained E may not satisfy the essential matrix properties (such as having singular values (1, 1, 0)). To enforce these properties, 
+the essential matrix undergoes further refinement. This typically involves performing SVD on E, setting the third singular value to 0, and then reconstructing E.
+
+The final essential matrix represents the geometric transformation between the two cameras.

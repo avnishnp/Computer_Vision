@@ -1,0 +1,32 @@
+PnP: The PnP function implements the linear PnP algorithm. Given a set of reconstructed 3D points (X) and their corresponding 2D points (x) in a new image, 
+it estimates the rotation matrix (R) and camera center (C) using a linear least squares solution. This function is an initial estimation step for the camera pose.
+
+PnP_RANSAC: The PnP_RANSAC function extends the PnP algorithm by incorporating RANSAC (Random Sample Consensus) to handle outliers.
+ It performs multiple iterations of PnP with randomly sampled 3D-2D point correspondences and selects the pose with the maximum number of inliers.
+  It returns the refined rotation matrix (R), camera center (C), and an indicator of inliers.
+
+ComputePoseJacobian: This function computes the pose Jacobian matrix for a given camera pose (p) and a 3D point (X).
+ The pose Jacobian represents the sensitivity of the projected 2D point coordinates to changes in the camera pose.
+  It is used in nonlinear optimization steps to refine the camera pose.
+
+ComputePnPError: This function computes the estimation error between the projected 3D points and the actual 2D points in the image.
+ It is used to evaluate the quality of the camera pose estimation during the optimization process.
+
+PnP_nl: The function PnP_nl(R, C, X, x) performs nonlinear optimization to refine the camera pose obtained from the PnP algorithm. 
+It takes the initial rotation matrix R, camera center C, the set of reconstructed 3D points X, and their corresponding 2D points x as inputs. 
+It iteratively updates the pose using a pose Jacobian and minimizes the error between the projected 3D points and the actual 2D points. 
+The nonlinear optimization helps to improve the accuracy of the camera pose estimation.
+
+Once the camera poses are known, the 3D coordinates of the matched feature points can be computed using triangulation. 
+Triangulation involves finding the intersection of the viewing rays from two or more cameras corresponding to the same feature point.
+
+
+
+Typical Pipeline is as follows:
+1) Reconstruct a 3D scene using techniques such as Structure-from-Motion (SfM) or multi-view stereo.
+2) Obtain a new image where you want to estimate the camera pose.
+3) Provide the reconstructed 3D points (X) and their corresponding 2D points (x) from the new image to the PnP algorithm.
+4) Use the PnP_RANSAC function to estimate an initial camera pose (R and C) while handling outliers.
+5) Refine the camera pose using the PnP_nl function, which performs nonlinear optimization with the pose Jacobian.
+6) Optionally, you can repeat the refinement step or apply additional techniques for pose refinement or error reduction.
+7) Utilize the final camera pose for applications like augmented reality, camera tracking, or further 3D reconstruction.
