@@ -1,0 +1,10 @@
+[ 2023-08-24 01:49:55,528 ] root - INFO - Entered the start_data_ingestion method of TrainPipeline class
+[ 2023-08-24 01:49:55,528 ] root - INFO - Getting the data from URL
+[ 2023-08-24 01:49:55,528 ] root - INFO - Entered initiate_data_ingestion method of Data_Ingestion class
+[ 2023-08-24 01:49:55,529 ] root - INFO - Downloading data from https://drive.google.com/file/d/1VWFeRxyGq-bBS5AIuJBtC7kFJ4Fr9Ywr/view into file artifacts\data_ingestion\data.zip
+[ 2023-08-24 01:50:01,353 ] root - INFO - Downloaded data from https://drive.google.com/file/d/1VWFeRxyGq-bBS5AIuJBtC7kFJ4Fr9Ywr/view into file artifacts\data_ingestion\data.zip
+[ 2023-08-24 01:50:02,270 ] root - INFO - Extracting zip file: artifacts\data_ingestion\data.zip into dir: artifacts\data_ingestion\feature_store
+[ 2023-08-24 01:50:02,270 ] root - INFO - Exited initiate_data_ingestion method of Data_Ingestion class
+[ 2023-08-24 01:50:02,270 ] root - INFO - Data ingestion artifact: DataIngestionArtifact(data_zip_file_path='artifacts\\data_ingestion\\data.zip', feature_store_path='artifacts\\data_ingestion\\feature_store')
+[ 2023-08-24 01:50:02,270 ] root - INFO - Got the data from URL
+[ 2023-08-24 01:50:02,270 ] root - INFO - Exited the start_data_ingestion method of TrainPipeline class
