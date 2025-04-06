@@ -45,7 +45,6 @@ class LiDAR2Camera(object):
         '''
         Project from Velodyne frame to Camera Frame
         '''
-
         R0_homo = np.vstack([self.R0, [0, 0, 0]])
         R0_homo_2 = np.column_stack([R0_homo, [0, 0, 0, 1]])
         p_r0 = np.dot(self.P, R0_homo_2)  # PxR0
@@ -67,45 +66,32 @@ class LiDAR2Camera(object):
                 & (pts_2d[:, 1] < ymax)
                 & (pts_2d[:, 1] >= ymin)
         )
-        fov_inds = fov_inds & (
-                    pc_velo[:, 0] > clip_distance)
+        fov_inds = fov_inds & (pc_velo[:, 0] > clip_distance)
         imgfov_pc_velo = pc_velo[fov_inds, :]
         if return_more:
             return imgfov_pc_velo, pts_2d, fov_inds
         else:
             return imgfov_pc_velo
 
-    def show_lidar_on_image(self, pc_velo, img):
-        """ Project LiDAR points to image """
+    def project_lidar_points_to_image(self, pc_velo, img):
+        """
+        Project LiDAR points to image WITHOUT drawing them
+        This function only computes the projection and saves the data for later use
+        """
         imgfov_pc_velo, pts_2d, fov_inds = self.get_lidar_in_image_fov(
             pc_velo, 0, 0, img.shape[1], img.shape[0], True)
+        
+        # Store the projected points and their corresponding 3D coordinates
+        self.imgfov_pc_velo = imgfov_pc_velo  # 3D points in LiDAR frame
+        self.imgfov_pts_2d = pts_2d[fov_inds, :]  # 2D points in image frame
+        
+        return img  # Return the image without any modifications
 
-        cmap = plt.cm.get_cmap("hsv", 256)
-        cmap = np.array([cmap(i) for i in range(256)])[:, :3] * 255
-        self.imgfov_pc_velo = imgfov_pc_velo
-
-        self.imgfov_pts_2d = pts_2d[fov_inds, :]
-
-        for i in range(self.imgfov_pts_2d.shape[0]):
-            depth = imgfov_pc_velo[i, 0]
-            color = cmap[int(510.0 / depth), :]
-            cv2.circle(
-                img, (int(np.round(self.imgfov_pts_2d[i, 0])), int(np.round(self.imgfov_pts_2d[i, 1]))), 2,
-                color=tuple(color),
-                thickness=-1,
-            )
-
-        return img
-
-    def rectContains(self,rect, pt, w, h, shrink_factor=0):
-        x1 = int(rect[0] * w - rect[2] * w * 0.5 * (1 - shrink_factor))  # center_x - width /2 * shrink_factor
-        y1 = int(rect[1] * h - rect[3] * h * 0.5 * (1 - shrink_factor))  # center_y - height /2 * shrink_factor
-        x2 = int(rect[0] * w + rect[2] * w * 0.5 * (1 - shrink_factor))  # center_x + width/2 * shrink_factor
-        y2 = int(rect[1] * h + rect[3] * h * 0.5 * (1 - shrink_factor))  # center_y + height/2 * shrink_factor
-
-        return x1 < pt[0] < x2 and y1 < pt[1] < y2
-
-    def filter_outliers(self,distances):
+    def filter_outliers(self, distances):
+        """Filter outliers using mean and standard deviation"""
+        if len(distances) < 2:
+            return distances
+            
         inliers = []
         mu = statistics.mean(distances)
         std = statistics.stdev(distances)
@@ -113,9 +99,13 @@ class LiDAR2Camera(object):
             if abs(x - mu) < std:
                 # This is an INLIER
                 inliers.append(x)
-        return inliers
+        return inliers if inliers else distances
 
     def get_best_distance(self, distances, technique="closest"):
+        """Get the best representative distance based on the specified technique"""
+        if not distances:
+            return None
+            
         if technique == "closest":
             return min(distances)
         elif technique == "average":
@@ -126,28 +116,129 @@ class LiDAR2Camera(object):
             return statistics.median(sorted(distances))
 
     def lidar_camera_fusion(self, pred_bboxes, image):
+        """
+        Performs LiDAR-camera fusion by associating LiDAR points with YOLO-detected bounding boxes.
+        Only draws LiDAR points that are within bounding boxes.
+        Improves text positioning to avoid overlapping.
+        """
         img_bis = image.copy()
+        h, w, _ = img_bis.shape
 
         cmap = plt.cm.get_cmap("hsv", 256)
         cmap = np.array([cmap(i) for i in range(256)])[:, :3] * 255
-        distances = []
+        all_distances = []
+
+        print(f"Processing {len(pred_bboxes)} bounding boxes")
+        
+        # First draw the bounding boxes without any points
         for box in pred_bboxes:
-            distances = []
+            if len(box) < 6:
+                print(f"Skipping invalid box format: {box}")
+                continue
+
+            x1, y1, x2, y2, conf, cls = box
+            
+            # Ensure bounding box coordinates are integers and within valid range
+            x1 = max(0, int(x1))
+            y1 = max(0, int(y1))
+            x2 = min(w - 1, int(x2))
+            y2 = min(h - 1, int(y2))
+
+            if x2 <= x1 or y2 <= y1:
+                print(f"Invalid box coordinates after adjustment: {x1}, {y1}, {x2}, {y2}")
+                continue
+
+            # Draw bounding box
+            cv2.rectangle(img_bis, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        
+        # Check if we have LiDAR points projected
+        if not hasattr(self, 'imgfov_pts_2d') or not hasattr(self, 'imgfov_pc_velo'):
+            print("No LiDAR points projected. Run project_lidar_points_to_image first.")
+            return img_bis, []
+        
+        # Now process each bounding box and draw points only within boxes
+        for box in pred_bboxes:
+            if len(box) < 6:
+                continue
+
+            x1, y1, x2, y2, conf, cls = box
+            
+            # Ensure bounding box coordinates are integers and within valid range
+            x1 = max(0, int(x1))
+            y1 = max(0, int(y1))
+            x2 = min(w - 1, int(x2))
+            y2 = min(h - 1, int(y2))
+
+            if x2 <= x1 or y2 <= y1:
+                continue
+
+            print(f"Processing box: ({x1}, {y1}, {x2}, {y2}), confidence: {conf:.2f}, class: {int(cls)}")
+            box_distances = []
+
+            # Draw points only if they're inside this bounding box
             for i in range(self.imgfov_pts_2d.shape[0]):
-                depth = self.imgfov_pc_velo[i, 0]
-                if (self.rectContains(box, self.imgfov_pts_2d[i], image.shape[1], image.shape[0],
-                                 shrink_factor=0.20) == True):
-                    distances.append(depth)
+                point_x, point_y = self.imgfov_pts_2d[i]
+                if x1 <= point_x <= x2 and y1 <= point_y <= y2:
+                    depth = self.imgfov_pc_velo[i, 0]
+                    box_distances.append(depth)
+                    color_idx = min(int(510.0 / depth), 255)
+                    color = tuple(map(int, cmap[color_idx]))
 
-                    color = cmap[int(510.0 / depth), :]
-                    cv2.circle(img_bis,
-                               (int(np.round(self.imgfov_pts_2d[i, 0])), int(np.round(self.imgfov_pts_2d[i, 1]))), 2,
-                               color=tuple(color), thickness=-1, )
-            h, w, _ = img_bis.shape
-            if (len(distances) > 2):
-                distances = self.filter_outliers(distances)
-                best_distance = self.get_best_distance(distances, technique="average")
-                cv2.putText(img_bis, '{0:.2f} m'.format(best_distance), (int(box[0] * w), int(box[1] * h)),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 0, 0), 2, cv2.LINE_AA)
+                    cv2.circle(
+                        img_bis,
+                        (int(np.round(point_x)), int(np.round(point_y))),
+                        2,
+                        color=color,
+                        thickness=-1,
+                    )
 
-        return img_bis, distances
+            if len(box_distances) > 0:
+                filtered_distances = self.filter_outliers(box_distances)
+                if filtered_distances:
+                    best_distance = self.get_best_distance(filtered_distances, technique="average")
+                    all_distances.append(best_distance)
+
+                    # Add distance label with improved positioning
+                    # Position the text at the bottom of the bounding box instead of the top
+                    # This helps avoid overlapping with detection labels
+                    label = f"{best_distance:.2f}m"
+                    
+                    # Calculate text size to better position it
+                    text_size = cv2.getTextSize(
+                        label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
+                    )[0]
+                    
+                    # Position text at the bottom of the box
+                    text_x = x1 + 5
+                    text_y = y2 + text_size[1] + 5  # Position below the box
+                    
+                    # Check if text would go off screen
+                    if text_y >= h:
+                        # If it would go off screen, position it inside the bottom of the box
+                        text_y = y2 - 5
+                    
+                    # Add a small background rectangle for better visibility
+                    cv2.rectangle(
+                        img_bis,
+                        (text_x - 2, text_y - text_size[1] - 2),
+                        (text_x + text_size[0] + 2, text_y + 2),
+                        (0, 0, 0),  # Black background
+                        -1  # Filled rectangle
+                    )
+                    
+                    # Draw the text
+                    cv2.putText(
+                        img_bis,
+                        label,
+                        (text_x, text_y),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,  # Slightly smaller font
+                        (255, 255, 255),  # White text
+                        2,
+                        cv2.LINE_AA,
+                    )
+            else:
+                # No points found in this box
+                print(f"No LiDAR points found in box {x1}, {y1}, {x2}, {y2}")
+            
+        return img_bis, all_distances
