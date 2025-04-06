@@ -36,7 +36,7 @@ Creates a video from a series of images and point clouds by applying the LiDAR-C
 ## 🔍 Sample Outputs
 
 ### Output Example 1
-![Output1](output_images\000004.png)
+![Output1](output_images/000004.png)
 
 ### Output Example 2
-![Output 2](output_images\000000.png)
+![Output 2](output_images/000000.png)
