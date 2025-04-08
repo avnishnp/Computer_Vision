@@ -16,6 +16,19 @@ Implements the `LiDAR2Camera` class responsible for transforming LiDAR points to
 ### `gen_video.py`
 Creates a video from a series of images and point clouds by applying the LiDAR-Camera fusion and YOLO-based object detection pipeline to each frame. It saves the processed frames and generates a video as output.
 
+### `bev_visualizer.py`
+ Contains the EnhancedBEVVisualizer class that creates bird's eye view visualizations of LiDAR point clouds with detected objects. It includes functions for creating a base image with grid lines, drawing 3D bounding boxes, adding class labels, and creating a legend.
+
+ ### `bev.py`
+ It defines functions for processing single frames and entire datasets, setting up the pipeline to:
+
+- Process camera images and LiDAR point clouds
+- Detect objects using YOLO
+- Perform LiDAR-camera fusion
+- Create BEV visualizations
+- Generate output images and videos
+- Includes a command-line interface for easy use
+
 ## 🔧 Requirements
 - Python 3.8+
 - OpenCV
@@ -38,5 +51,11 @@ Creates a video from a series of images and point clouds by applying the LiDAR-C
 ### Output Example 1
 ![Output1](output_images/000004.png)
 
+### Lidar Output Example 1
+![Lidar Output 1](output_bev/bev/000004.png)
+
 ### Output Example 2
 ![Output 2](output_images/000000.png)
+
+### Lidar Output Example 2
+![Lidar Output 2](output_bev/bev/000000.png)
