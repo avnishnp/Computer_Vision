@@ -1,6 +1,14 @@
-# Project: LiDAR-Camera Fusion and Obstacle Detection
+# Project: LiDAR-Camera Fusion, Object Detection with Inverse Projection mapping (IPM) based Birds Eye View (BEV)
 
 This project demonstrates the process of fusing LiDAR point clouds with camera images to enhance object detection using YOLOv8. The fusion process projects LiDAR points onto image frames and detects obstacles via a deep learning-based model.
+
+## 🚗 Key Features
+
+- **YOLOv8-based object detection** on camera images.
+- **LiDAR-camera calibration and fusion**, with 3D point projection.
+- **IPM-based BEV transformation** for top-down view generation.
+- **Per-frame visualization** and **video output** in multiple views (camera, BEV, combined).
+- Outputs include images and videos for better interpretability.
 
 ## 📂 File Descriptions
 
@@ -29,6 +37,13 @@ Creates a video from a series of images and point clouds by applying the LiDAR-C
 - Generate output images and videos
 - Includes a command-line interface for easy use
 
+ ### `IPM/ipm.py`
+ Contains the `CameraToBEV` class for generating BEV images from camera views using Inverse Perspective Mapping. Also includes grid overlays, source region visualization, and object projection support.
+
+### `IPM/main.py`
+Processes an entire dataset of frames, applies the full fusion pipeline, and generates camera, BEV, and combined view videos using IPM.
+
+
 ## 🔧 Requirements
 - Python 3.8+
 - OpenCV
@@ -40,10 +55,12 @@ Creates a video from a series of images and point clouds by applying the LiDAR-C
 ## 🚀 Usage
 - Run `early_fusion.py` to process a single frame.
 - Run `gen_video.py` to generate a video from a series of frames.
+- Run `IPM/main.py` for generating camera views and IPN
+
 
 ## 📂 Output
 - Processed frames saved to the `output_images` directory.
-- Generated video saved as `out_4.mp4`.
+- Generated video saved as `out.mp4`.
 
 ---
 ## 🔍 Sample Outputs
@@ -54,8 +71,14 @@ Creates a video from a series of images and point clouds by applying the LiDAR-C
 ### Lidar Output Example 1
 ![Lidar Output 1](output_bev/bev/000004.png)
 
+### IPM Output Example 1
+![IPM Output 1](IPM/ipm_output/bev/000004.png)
+
 ### Output Example 2
 ![Output 2](output_images/000000.png)
 
 ### Lidar Output Example 2
 ![Lidar Output 2](output_bev/bev/000000.png)
+
+### IPM Output Example 2
+![IPM Output 2](IPM/ipm_output/bev/000000.png)
