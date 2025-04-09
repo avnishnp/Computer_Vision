@@ -136,8 +136,18 @@ if __name__ == '__main__':
         image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
         # Visualize the source region
         img_with_region = cam2bev_obj.draw_source_region(image)
-        cv2.imshow("IPM Source Region", cv2.cvtColor(img_with_region, cv2.COLOR_RGB2BGR))
-        cv2.waitKey(10)
+        # cv2.imshow("IPM Source Region", cv2.cvtColor(img_with_region, cv2.COLOR_RGB2BGR))
+        # cv2.waitKey(10)
+        # Convert to BGR for saving
+        img_with_region_bgr = cv2.cvtColor(img_with_region, cv2.COLOR_RGB2BGR)
+
+        # Create a folder to save the source region images
+        ipm_region_dir = os.path.join(output_dir, "ipm_source_regions")
+        os.makedirs(ipm_region_dir, exist_ok=True)
+
+        # Save the image
+        region_save_path = os.path.join(ipm_region_dir, f"{idx:06d}.png")
+        cv2.imwrite(region_save_path, img_with_region_bgr)
         point_cloud = np.asarray(o3d.io.read_point_cloud(video_points[idx]).points)
 
         # Run the final pipeline

@@ -1,4 +1,4 @@
-# Project: LiDAR-Camera Fusion, Object Detection with Inverse Projection mapping (IPM) based Birds Eye View (BEV)
+# Project: LiDAR-Camera Fusion, Object Detection with Inverse Perspective mapping (IPM) based Birds Eye View (BEV)
 
 This project demonstrates the process of fusing LiDAR point clouds with camera images to enhance object detection using YOLOv8. The fusion process projects LiDAR points onto image frames and detects obstacles via a deep learning-based model.
 
@@ -79,6 +79,9 @@ Processes an entire dataset of frames, applies the full fusion pipeline, and gen
 
 ### Lidar Output Example 2
 ![Lidar Output 2](output_bev/bev/000000.png)
+
+### IPM Output Example 2 Trapezoid Coverage Area
+![IPM cover 2](IPM/ipm_output/ipm_source_regions/000000.png)
 
 ### IPM Output Example 2
 ![IPM Output 2](IPM/ipm_output/bev/000000.png)
