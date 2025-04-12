@@ -122,5 +122,5 @@ The script generates several outputs:
 #### Video
 Split-screen display showing camera view with colored bounding boxes (left) and bird's-eye view tracking map with vehicle positions (right)
 
-Click on the link to view the visualization [[Tracking Video]](results/my_tracking_results.mp4)
+Click on the link to view the visualization [[Tracking Video]](results/my_tracking_result.avi)
 
