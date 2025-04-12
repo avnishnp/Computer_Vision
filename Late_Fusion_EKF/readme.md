@@ -16,8 +16,7 @@ This repository implements 3D object detection and tracking using the Waymo Open
 - NumPy
 - OpenCV
 - Matplotlib
-- TensorFlow
-- Waymo Open Dataset reader
+- PyTorch
 
 ## Directory Structure
 ```
@@ -119,7 +118,7 @@ The script generates several outputs:
 - **Track IDs**: Numeric identifiers for each tracked vehicle
 ![Output6](results/images/rmse.png)
 
-#### Video
+### Video
 Split-screen display showing camera view with colored bounding boxes (left) and bird's-eye view tracking map with vehicle positions (right)
 
 ![Output7](results/images/side-side.png)
