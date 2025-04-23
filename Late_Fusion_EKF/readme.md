@@ -132,9 +132,6 @@ The script generates several outputs:
 - **Track IDs**: Numeric identifiers for each tracked vehicle
 ![Output6](results/images/rmse.png)
 
-#### 3D Scene Reconstruction
-Reconstructed 3D environment with color-coded point clouds—colors represent height variation (Z-axis), transitioning from purple (low) to green (high).
-![Output3d_1](results/images/3d_map.png)
 
 ### Tracking + Detection Video
 Split-screen display showing camera view with colored bounding boxes (left) and bird's-eye view tracking map with vehicle positions (right)
@@ -142,6 +139,10 @@ Split-screen display showing camera view with colored bounding boxes (left) and 
 ![Output7](results/images/side-side.png)
 
 Click on the link to view the visualization [[Tracking Video]](results/my_tracking_result.avi)
+
+#### 3D Scene Reconstruction
+Reconstructed 3D environment with color-coded point clouds—colors represent height variation (Z-axis), transitioning from purple (low) to green (high).
+![Output3d_1](results/images/3d_map.png)
 
 ### 3D Scene Reconstruction Map Video
 Video showing step by step map generation from lidar point clouds based on vehicle pose (with red objects as moving car)
