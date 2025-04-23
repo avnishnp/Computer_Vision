@@ -1,6 +1,6 @@
 # Purpose of this file : Loop over all frames in a Waymo Open Dataset file,
-#                        detect and track objects and visualize results
-#
+#                        detect and track objects, perform 3D scene reconstruction
+#                        and visualize results
 
 ##################
 ## Imports
@@ -13,6 +13,10 @@ import math
 import cv2
 import matplotlib.pyplot as plt
 import copy
+import open3d as o3d
+from scipy.spatial.transform import Rotation as R
+import time
+from tqdm import tqdm
 
 ## Add current working directory to path
 sys.path.append(os.getcwd())
@@ -35,12 +39,217 @@ from kalman_filter.association import Association
 from kalman_filter.measurements import Sensor, Measurement
 from plots import plot_tracks, plot_rmse, make_movie
 import kalman_filter.params as params 
- 
+
+##################
+## Scene Reconstruction Implementation
+
+class SceneReconstruction:
+    def __init__(self, voxel_size=0.2):
+        """
+        Initialize the 3D scene reconstruction
+        
+        :param voxel_size: Size of voxels for downsampling the point cloud
+        """
+        self.voxel_size = voxel_size
+        self.global_map = o3d.geometry.PointCloud()
+        self.poses = []  # Store all poses
+        self.frame_count = 0
+        self.first_pose = None  # Store first pose for reference
+        
+        # For visualization
+        self.vis = None
+        self.is_visualization_initialized = False
+    
+    def preprocess_point_cloud(self, point_cloud, voxel_size):
+        """
+        Downsample point cloud and estimate normals
+        
+        :param point_cloud: Input point cloud
+        :param voxel_size: Size of voxels for downsampling
+        :return: Processed point cloud
+        """
+        print(":: Downsample with voxel size {:.3f}.".format(voxel_size))
+        pcd_down = point_cloud.voxel_down_sample(voxel_size)
+        
+        # Estimate normals
+        radius_normal = voxel_size * 2
+        pcd_down.estimate_normals(
+            o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
+        
+        return pcd_down
+    
+    def prepare_point_cloud(self, lidar_pcl):
+        """
+        Convert numpy point cloud to Open3D point cloud
+        
+        :param lidar_pcl: Numpy array of point cloud [x, y, z, intensity]
+        :return: Open3D point cloud
+        """
+        # Extract points (ignore intensity for reconstruction)
+        points = lidar_pcl[:, 0:3]
+        
+        # Create Open3D point cloud
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points)
+        
+        # Random colors based on XYZ coordinates for visualization
+        colors = np.zeros_like(points)
+        colors[:, 0] = 0.5 + points[:, 0] / 100.0
+        colors[:, 1] = 0.5 + points[:, 1] / 100.0
+        colors[:, 2] = 0.5 + points[:, 2] / 100.0
+        pcd.colors = o3d.utility.Vector3dVector(colors)
+        
+        # Preprocess
+        return self.preprocess_point_cloud(pcd, self.voxel_size)
+        
+    def update_map(self, lidar_pcl, pose):
+        """
+        Update the global map with new lidar scan using the provided pose
+        
+        :param lidar_pcl: New lidar point cloud (numpy array)
+        :param pose: 4x4 transformation matrix representing vehicle pose
+        """
+        # Store the pose
+        if self.first_pose is None:
+            self.first_pose = pose.copy()
+            # First frame is the origin of our map
+            relative_pose = np.eye(4)
+        else:
+            # Calculate pose relative to the first frame
+            relative_pose = np.linalg.inv(self.first_pose) @ pose
+        
+        self.poses.append(relative_pose.copy())
+        
+        # Convert to Open3D point cloud
+        current_pcd = self.prepare_point_cloud(lidar_pcl)
+        
+        # Transform current point cloud to global frame
+        current_pcd_global = copy.deepcopy(current_pcd)
+        current_pcd_global.transform(relative_pose)
+        
+        # Add to global map
+        self.global_map += current_pcd_global
+        
+        # Down-sample global map to manage size
+        if self.frame_count % 10 == 0:
+            self.global_map = self.global_map.voxel_down_sample(self.voxel_size * 2)
+        
+        self.frame_count += 1
+    
+    def init_visualization(self):
+        """Initialize Open3D visualization"""
+        if not self.is_visualization_initialized:
+            self.vis = o3d.visualization.Visualizer()
+            self.vis.create_window(window_name="3D Scene Reconstruction", width=1280, height=720)
+            self.is_visualization_initialized = True
+            
+            # Add global map to visualization
+            self.vis.add_geometry(self.global_map)
+            
+            # Add coordinate frame
+            coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=5.0)
+            self.vis.add_geometry(coord_frame)
+    
+    # def update_visualization(self):
+    #     """Update visualization"""
+    #     if not self.is_visualization_initialized:
+    #         self.init_visualization()
+        
+    #     self.vis.remove_geometry(self.global_map, reset_bounding_box=False)
+    #     self.vis.add_geometry(self.global_map)
+    #     self.vis.poll_events()
+    #     self.vis.update_renderer()
+    
+    def update_visualization(self):
+        """Update Open3D visualization with point cloud, ego-car frame, and trajectory"""
+        if not self.is_visualization_initialized:
+            self.init_visualization()
+
+        # Clear existing geometries (point cloud will be re-added)
+        self.vis.clear_geometries()
+
+        # Add current global point cloud
+        self.vis.add_geometry(self.global_map)
+
+        # ───────────────────────────────
+        # 🧭 Add car's current coordinate frame
+        if self.poses:
+            car_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=3.0)
+            car_frame.transform(self.poses[-1])  # Use latest pose
+            self.vis.add_geometry(car_frame)
+
+        # ───────────────────────────────
+        # 📈 Add trajectory line
+        if len(self.poses) > 1:
+            pts = [pose[:3, 3] for pose in self.poses]
+            lines = [[i, i + 1] for i in range(len(pts) - 1)]
+            colors = [[0, 0, 1] for _ in lines]  # Blue line
+
+            line_set = o3d.geometry.LineSet()
+            line_set.points = o3d.utility.Vector3dVector(pts)
+            line_set.lines = o3d.utility.Vector2iVector(lines)
+            line_set.colors = o3d.utility.Vector3dVector(colors)
+
+            self.vis.add_geometry(line_set)
+
+        # ───────────────────────────────
+        # Refresh visualization
+        self.vis.poll_events()
+        self.vis.update_renderer()
+        time.sleep(0.05)  # Add delay to slow down rendering and make it visible
+
+
+
+    
+    def save_reconstruction(self, output_path="reconstruction.pcd"):
+        """
+        Save the reconstructed point cloud in either .pcd or .ply format
+
+        :param output_path: Path to save the point cloud (must end with .pcd or .ply)
+        """
+        ext = os.path.splitext(output_path)[1].lower()
+        if ext not in [".pcd", ".ply"]:
+            raise ValueError("Output file must be .pcd or .ply")
+
+        print(f"Saving reconstruction to {output_path}")
+        o3d.io.write_point_cloud(output_path, self.global_map)
+
+    
+    def visualize_trajectory(self, output_path="trajectory.png"):
+        """
+        Visualize trajectory as a line graph
+        
+        :param output_path: Path to save the visualization
+        """
+        # Extract translation components from poses
+        translations = np.array([pose[:3, 3] for pose in self.poses])
+        
+        # Plot the trajectory
+        plt.figure(figsize=(10, 8))
+        plt.plot(translations[:, 0], translations[:, 1], 'b-', linewidth=2)
+        plt.plot(translations[0, 0], translations[0, 1], 'ro', markersize=10, label='Start')
+        plt.plot(translations[-1, 0], translations[-1, 1], 'go', markersize=10, label='End')
+        plt.grid(True)
+        plt.axis('equal')
+        plt.title('Vehicle Trajectory')
+        plt.xlabel('X (meters)')
+        plt.ylabel('Y (meters)')
+        plt.legend()
+        plt.savefig(output_path)
+        plt.close()
+        print(f"Trajectory visualization saved to {output_path}")
+    
+    def close_visualization(self):
+        """Close visualization"""
+        if self.is_visualization_initialized:
+            self.vis.destroy_window()
+            self.is_visualization_initialized = False
+
 ##################
 ## Set parameters and perform initializations
 
 ## Select Waymo Open Dataset file and frame numbers
-data_filename = 'training_segment-1005081002024129653_5313_150_5333_150_with_camera_labels.tfrecord' # Sequence 1
+data_filename = 'individual_files_training_segment-1005081002024129653_5313_150_5333_150_with_camera_labels.tfrecord' # Sequence 1
 #data_filename = 'training_segment-10072231702153043603_5725_000_5745_000_with_camera_labels.tfrecord' # Sequence 2
 # data_filename = 'training_segment-10963653239323173269_1924_000_1944_000_with_camera_labels.tfrecord' # Sequence 3
 show_only_frames = [0, 200] # show only frames in interval for debugging
@@ -68,10 +277,18 @@ lidar = None # init lidar sensor object
 camera = None # init camera sensor object
 np.random.seed(10) # make random values predictable
 
+## Initialize scene reconstruction (optional)
+enable_reconstruction = True  # Set to False to disable reconstruction
+if enable_reconstruction:
+    scene_reconstruction = SceneReconstruction(voxel_size=0.1)
+
+
 ## Selective execution and visualization
 exec_detection = ['bev_from_pcl', 'detect_objects', 'validate_object_labels', 'measure_detection_performance'] # options are 'bev_from_pcl', 'detect_objects', 'validate_object_labels', 'measure_detection_performance'; options not in the list will be loaded from file
-exec_tracking =[] #['perform_tracking'] # options are 'perform_tracking'
-exec_visualization = [ 'show_objects_in_bev_labels_in_camera']#[ 'show_tracks', 'make_tracking_movie', 'show_detection_performance'] # options are 'show_range_image', 'show_bev', 'show_pcl', 'show_labels_in_image', 'show_objects_and_labels_in_bev', 'show_objects_in_bev_labels_in_camera', 'show_tracks', 'show_detection_performance', 'make_tracking_movie'
+exec_tracking = [] #['perform_tracking'] # options are 'perform_tracking' keep this empty for 3d reconstruction map
+# exec_tracking= ['perform_tracking'] # options are 'perform_tracking' keep this for kalman filter track
+exec_visualization = [] # options are 'show_range_image', 'show_bev', 'show_pcl', 'show_labels_in_image', 'show_objects_and_labels_in_bev', 'show_objects_in_bev_labels_in_camera', 'show_tracks', 'show_detection_performance', 'make_tracking_movie'
+# exec_visualization = ['show_tracks']
 exec_list = make_exec_list(exec_detection, exec_tracking, exec_visualization)
 vis_pause_time = 0 # set pause time between frames in ms (0 = stop between frames until key is pressed)
 
@@ -117,6 +334,16 @@ while True:
         else:
             print('loading lidar point-cloud from result file')
             lidar_pcl = load_object_from_file(results_fullpath, data_filename, 'lidar_pcl', cnt_frame)
+            
+        ## Add point cloud to scene reconstruction
+        if enable_reconstruction:
+            # Update the 3D reconstruction with the current lidar point cloud
+            pose = np.array(frame.pose.transform).reshape(4, 4)
+            scene_reconstruction.update_map(lidar_pcl, pose)
+            
+            # Update visualization every 5 frames to avoid slowing down processing
+            # if cnt_frame % 5 == 0:
+            scene_reconstruction.update_visualization()
             
         ## Compute lidar birds-eye view (bev)
         if 'bev_from_pcl' in exec_list:
@@ -258,6 +485,26 @@ while True:
         # if StopIteration is raised, break from loop
         print("StopIteration has been raised\n")
         break
+
+#################################
+## Finalize reconstruction
+
+if enable_reconstruction:
+    # Save final reconstruction
+    output_pcd_path = os.path.join(results_fullpath, "reconstruction.pcd")
+    output_ply_path = os.path.join(results_fullpath, "reconstruction.ply")
+
+    scene_reconstruction.save_reconstruction(output_pcd_path)
+    scene_reconstruction.save_reconstruction(output_ply_path)
+    
+    # Visualize trajectory
+    scene_reconstruction.visualize_trajectory(os.path.join(results_fullpath, "trajectory.png"))
+    
+    # Show final reconstruction
+    print("Showing final reconstruction. Close the window to continue.")
+    scene_reconstruction.update_visualization()
+    time.sleep(5)  # Give time to view the final result
+    scene_reconstruction.close_visualization()
 
 
 #################################

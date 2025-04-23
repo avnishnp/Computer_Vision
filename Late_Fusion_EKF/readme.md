@@ -1,7 +1,7 @@
 # Waymo Open Dataset 3D Object Detection and Tracking
 
 ## Overview
-This repository implements 3D object detection and tracking using the Waymo Open Dataset. The system processes lidar point clouds and camera images to detect vehicles and track them across frames using Kalman filtering.
+This repository implements 3D object detection and tracking using the Waymo Open Dataset. The system processes lidar point clouds and camera images to detect vehicles and track them across frames using Kalman filtering and also generates 3d reconstruction into a globally consistent map of the environment
 
 ## Features
 - Point cloud processing from Waymo Open Dataset
@@ -46,6 +46,7 @@ This repository implements 3D object detection and tracking using the Waymo Open
    - Choose frame range (`show_only_frames`)
    - Select detector model (`configs_det`)
    - Configure execution options (`exec_detection`, `exec_tracking`, `exec_visualization`)
+   - Set the enable_reconstruction flag to True/False for 3d map generation
 3. Run the main script:
    ```
    python main.py
@@ -82,12 +83,25 @@ Object tracking is performed using:
 - Multi-hypothesis data association
 - Track management for initialization and deletion
 
+## 3D Scene Reconstruction
+This feature reconstructs a globally consistent 3D map by fusing LiDAR point clouds across frames using vehicle poses from the Waymo dataset. It uses voxel downsampling and Open3D for efficient visualization and storage.
+
+- Builds global point cloud map from LiDAR
+
+- Tracks vehicle pose through the sequence
+
+- Adds camera frame and trajectory visualization
+
+- Saves final reconstruction and trajectory images
+
 ## Output
 The script generates several outputs:
 - Visualization windows for different views
 - Detection performance metrics
 - Tracking results and RMSE plots
 - Optional movie of tracking results
+- Reconstruction PCD and PLY files for viz
+- Trajectory 2D plot
 
 ## Results
 
@@ -118,10 +132,18 @@ The script generates several outputs:
 - **Track IDs**: Numeric identifiers for each tracked vehicle
 ![Output6](results/images/rmse.png)
 
-### Video
+#### 3D Scene Reconstruction
+Reconstructed 3D environment with color-coded point clouds—colors represent height variation (Z-axis), transitioning from purple (low) to green (high).
+![Output3d_1](results/images/3d_map.png)
+
+### Tracking + Detection Video
 Split-screen display showing camera view with colored bounding boxes (left) and bird's-eye view tracking map with vehicle positions (right)
 
 ![Output7](results/images/side-side.png)
 
 Click on the link to view the visualization [[Tracking Video]](results/my_tracking_result.avi)
 
+### 3D Scene Reconstruction Map Video
+Video showing step by step map generation from lidar point clouds based on vehicle pose (with red objects as moving car)
+
+Click on the link to view the visualization [[Map Video]](results/3d_map.mp4)
