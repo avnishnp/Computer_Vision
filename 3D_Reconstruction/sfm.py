@@ -11,7 +11,7 @@ import gtsam
 from gtsam import (Cal3_S2, GenericProjectionFactorCal3_S2, NonlinearFactorGraph, SfmTrack, noiseModel,
                 PinholeCameraCal3_S2, Point2, Point3, Pose3, PriorFactorPoint3, PriorFactorPose3, Values)
 
-class sfm_helpers:
+class SFM:
     def __init__(self, path, viz=False):
         self.path = path
         self.K = None
@@ -94,7 +94,7 @@ class sfm_helpers:
 
         return E, inlier_src_pts, inlier_dst_pts
     
-    def posesFromE(self, E, img1_pts, img2_pts):   # For some reason this works better than recoverPose so kept this
+    def posesFromE(self, E, img1_pts, img2_pts):
 
         U, _, Vt = np.linalg.svd(E)
 
@@ -496,8 +496,8 @@ class gtsam_optimizer:
         return result
 
 def main():
-    sfmh = sfm_helpers("buddha_images", False)
-    images = sfmh.getImages()
+    sfm = SFM("buddha_images", False)
+    images = sfm.getImages()
     
     '''
     INITIAL TRIANGULATION
@@ -511,22 +511,22 @@ def main():
     for i in range(len(images)-1):
         print(f"\nidx = {i}")
         if i==0:
-            src_pts, dst_pts, good_matches = sfmh.findAndMatchFeatures(images[i], images[i+1], 1000)
+            src_pts, dst_pts, good_matches = sfm.findAndMatchFeatures(images[i], images[i+1], 1000)
         else:
-            src_pts, dst_pts, good_matches = sfmh.findAndMatchFeatures(images[i], images[i+1], 5000)
+            src_pts, dst_pts, good_matches = sfm.findAndMatchFeatures(images[i], images[i+1], 5000)
         print(f"Number of good matched between images {i} and {i+1} = {len(good_matches)}")
-        E, src_pts, dst_pts = sfmh.essentialMat(src_pts, dst_pts)
+        E, src_pts, dst_pts = sfm.essentialMat(src_pts, dst_pts)
 
         if i==0:
-            R, t = sfmh.posesFromE(E, src_pts, dst_pts)
+            R, t = sfm.posesFromE(E, src_pts, dst_pts)
             TrMat = np.vstack((np.hstack((R, t.reshape(3,1))), np.array([0, 0, 0, 1])))
             pc.camera_poses.append(TrMat)
             pc.gtsam_camera_poses.append(np.linalg.inv(TrMat))
 
-            P1 = np.array(sfmh.K @ pc.camera_poses[i][:3,:])
-            P2 = np.array(sfmh.K @ pc.camera_poses[i+1][:3,:])
+            P1 = np.array(sfm.K @ pc.camera_poses[i][:3,:])
+            P2 = np.array(sfm.K @ pc.camera_poses[i+1][:3,:])
 
-            pts_3d, src_pts, dst_pts = sfmh.triangulate_pts(P1, P2, src_pts, dst_pts)
+            pts_3d, src_pts, dst_pts = sfm.triangulate_pts(P1, P2, src_pts, dst_pts)
             
             pc.addPoints(pts_3d, src_pts, dst_pts, i, i+1)
 
@@ -534,14 +534,14 @@ def main():
             common_3d, common_2d_dst = pc.common_pts(src_pts, dst_pts)
             print(f"Number of 3D and 2D common points: {common_3d.shape}, {common_2d_dst.shape}")
 
-            TrMat = sfmh.posesFromPnP(common_3d, common_2d_dst)
+            TrMat = sfm.posesFromPnP(common_3d, common_2d_dst)
             pc.camera_poses.append(TrMat)
             pc.gtsam_camera_poses.append(np.linalg.inv(TrMat))
 
-            P1 = sfmh.K @ pc.camera_poses[i][:3,:]
-            P2 = sfmh.K @ pc.camera_poses[i+1][:3,:]
+            P1 = sfm.K @ pc.camera_poses[i][:3,:]
+            P2 = sfm.K @ pc.camera_poses[i+1][:3,:]
 
-            pts_3d, src_pts, dst_pts = sfmh.triangulate_pts(P1, P2, src_pts, dst_pts)
+            pts_3d, src_pts, dst_pts = sfm.triangulate_pts(P1, P2, src_pts, dst_pts)
             pc.addPoints(pts_3d, src_pts, dst_pts, i, i+1)
 
     # Plot Point Cloud
@@ -555,7 +555,7 @@ def main():
     '''
     OPTIMIZATION USING GTSAM
     '''
-    optimizer = gtsam_optimizer(pc, sfmh.K)
+    optimizer = gtsam_optimizer(pc, sfm.K)
 
     #Initilize the factor graph
     graph, initial_estimate, L, X = optimizer.initialize_factor_graph()

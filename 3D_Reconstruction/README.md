@@ -28,18 +28,6 @@ LEFT - Front View; RIGHT - Top View (for better visualization of camera poses)
 <img src="optimized_pcl_with_camera_poses.png?raw=true" alt="Optimized_pcl_with_cam_poses">
 LEFT - Front View;  RIGHT - Top View (for better visualization of camera poses)
 
-## Requirements
-
-The following packages are required to run the SfM pipeline:
-
-- Python 3.x
-- OpenCV
-- NumPy
-- Matplotlib
-- Open3D
-- Plotly
-- GTSAM
-
 ## Usage
 Clone the repository, and run the following in the project folder:
 ```bash
